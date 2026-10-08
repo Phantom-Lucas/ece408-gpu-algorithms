@@ -1,6 +1,8 @@
 #include "helper.hpp"
 
 
+constexpr int MAX_W_SIZE = 32 * 1 * 5 * 5;
+__constant__ float W_const[MAX_W_SIZE];
 // Sequential code for the forward path of the convolution layer
 // You should not modify this code
 static void conv_forward_valid(const float *X, const shape &xdims, const float *W, const shape &wdims, float *Y,
@@ -77,24 +79,149 @@ static void convlayer_gpu_baseline(const float *X, const shape &xdims, const flo
 __global__ void conv_forward_opt_kernel(const float *X, const shape xdims, const float *W, const shape wdims, float *Y,
   const shape ydims) {
 
-    const size_t gx = blockIdx.x * blockDim.x + threadIdx.x;
-  for (size_t i = gx; i < ydims.num * ydims.depth * ydims.height * ydims.width; i += blockDim.x * gridDim.x) {
-    Y[i] = 0.f;
-  }
+    extern __shared__ float smem[];
+    int tx=threadIdx.x;
+    int ty=threadIdx.y;
 
-  //@@ YOUR CODE HERE!
+    int tid=ty*blockDim.x+tx;
+    int num_threads=blockDim.x*blockDim.y;
 
+    int tile_height=blockDim.y+wdims.height-1;
+    int tile_width=blockDim.x+wdims.width-1;
+
+    int tile_size=tile_height*tile_width;
+    int filter_size=wdims.depth*wdims.height*wdims.width;
+
+    float *Xs=smem;
+    float *Ws=smem+tile_size;
+
+    //
+    int h=blockIdx.y*blockDim.y+ty;
+    int w=blockIdx.x*blockDim.x+tx;
+
+    int i=blockIdx.z/(ydims.depth);
+    int m=blockIdx.z%(ydims.depth);
+
+    int base_h=blockIdx.y*blockDim.y;
+    int base_w=blockIdx.x*blockDim.x;
+
+    //
+    for(int idx=tid;idx<filter_size;idx+=num_threads){
+        Ws[idx]=W[m*filter_size+idx];
+    }
+    __syncthreads();
+
+    //
+    float sum=0.0f;
+    for(int c=0;c<xdims.depth;c++){
+      for(int idx=tid;idx<tile_size;idx+=num_threads){
+        int sy=idx/tile_width;
+        int sx=idx%tile_width;
+
+        int xh=base_h+sy;
+        int xw=base_w+sx;
+
+        if(xh<xdims.height && xw<xdims.width){
+          int xoffset=((i*xdims.depth+c)*xdims.height+xh)*xdims.width+xw;
+          Xs[idx] = X[xoffset];
+        }else{
+          Xs[idx]=0.0f;
+        }
+      }
+      __syncthreads();
+
+      if(h<ydims.height && w<ydims.width){
+        for(int p=0;p<wdims.height;p++){
+          for(int q=0;q<wdims.width;q++){
+            int xs_offset = (ty + p) * tile_width + (tx + q);
+            int ws_offset=((c*wdims.height+p)*wdims.width+q);
+            sum+=Xs[xs_offset]*Ws[ws_offset];
+          }
+        }
+      }
+      __syncthreads();
+    
+    }
+    if(h<ydims.height && w<ydims.width){
+      int yoffset=((i*ydims.depth+m)*ydims.height+h)*ydims.width+w;
+      Y[yoffset]=sum;
+    }
 }
 
 // Host code to configure baseline GPU kernel
-static void convlayer_gpu_opt(const float *X, const shape &xdims, const float *W, const shape &wdims, float *Y,
-  const shape &ydims) {
+static void convlayer_gpu_opt(
+    const float *X,
+    const shape &xdims,
+    const float *W,
+    const shape &wdims,
+    float *Y,
+    const shape &ydims)
+{
+    constexpr int TILE = 16;
 
-  //@@ YOUR CODE HERE
-  dim3 dimGrid(1);
-  dim3 dimBlock(32);
-  conv_forward_opt_kernel<<<dimGrid, dimBlock>>>(X, xdims, W, wdims, Y, ydims);
-  THROW_IF_ERROR(cudaGetLastError());
+    // 每个 block 16×16 = 256 threads
+    dim3 dimBlock(TILE, TILE);
+
+    // x/y 划分输出 feature map
+    // z 同时表示 image i 和 output channel m
+    dim3 dimGrid(
+        (ydims.width  + TILE - 1) / TILE,
+        (ydims.height + TILE - 1) / TILE,
+        ydims.num * ydims.depth
+    );
+
+    /*
+     * 一个 16×16 output tile 需要：
+     *
+     * (16 + Kh - 1) × (16 + Kw - 1)
+     *
+     * 的 input tile
+     */
+    int input_tile_height =
+        TILE + wdims.height - 1;
+
+    int input_tile_width =
+        TILE + wdims.width - 1;
+
+    int input_tile_size =
+        input_tile_height * input_tile_width;
+
+    /*
+     * 当前 block 只负责一个 output channel m，
+     * 所以只需要：
+     *
+     * W[m][:][:][:]
+     *
+     * 大小 = C × Kh × Kw
+     */
+    int filter_size =
+        wdims.depth *
+        wdims.height *
+        wdims.width;
+
+    /*
+     * shared memory:
+     *
+     * | input tile | filter |
+     */
+    size_t shared_size =
+        (input_tile_size + filter_size) *
+        sizeof(float);
+
+    conv_forward_opt_kernel<<<
+        dimGrid,
+        dimBlock,
+        shared_size
+    >>>(
+        X,
+        xdims,
+        W,
+        wdims,
+        Y,
+        ydims
+    );
+
+    THROW_IF_ERROR(cudaGetLastError());
 }
 
 

@@ -6,8 +6,28 @@
 
 __global__ void spmvCSRKernel(float *out, int *matCols, int *matRows,
                               float *matData, float *vec, int dim) {
-  //@@ insert spmv kernel for csr format
+  int row = blockIdx.x * blockDim.y + threadIdx.y;
+  int lane = threadIdx.x;
+
+  if (row >= dim) {
+    return;
+  }
+
+  float sum = 0.0f;
+
+  for (int j = matRows[row] + lane; j < matRows[row + 1]; j += 32) {
+    sum += matData[j] * vec[matCols[j]];
+  }
+
+  for (int offset = 16; offset > 0; offset /= 2) {
+    sum += __shfl_down_sync(0xffffffffu, sum, offset);
+  }
+
+  if (lane == 0) {
+    out[row] = sum;
+  }
 }
+
 
 __global__ void spmvJDSKernel(float *out, int *matColStart, int *matCols,
                               int *matRowPerm, int *matRows,
@@ -15,9 +35,15 @@ __global__ void spmvJDSKernel(float *out, int *matColStart, int *matCols,
   //@@ insert spmv kernel for jds format
 }
 
+// matCols: column indices of the matrix :NNZ
+// matRows: row pointers of the matrix  :dim+1
+// matData: non-zero values of the matrix :NNZ
 static void spmvCSR(float *out, int *matCols, int *matRows, float *matData,
                     float *vec, int dim) {
-  //@@ invoke spmv kernel for csr format
+  dim3 block(32, 8);
+  int gridSize = (dim + block.y - 1) / block.y;
+
+  spmvCSRKernel<<<gridSize, block>>>(out, matCols, matRows, matData, vec, dim);
 }
 
 static void spmvJDS(float *out, int *matColStart, int *matCols,
