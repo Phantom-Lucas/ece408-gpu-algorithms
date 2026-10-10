@@ -1,0 +1,128 @@
+==WARNING== Note: Running with uncontrolled GPU caches. Profiling results may be inconsistent.
+==PROF== Connected to process 101506 (/home/orangeck/my/infra/ECE408/gpu-algorithms-labs/labs/spmv/spmv_profile)
+Device: NVIDIA GeForce RTX 4050 Laptop GPU (sm_89)
+Matrix: 65536 x 65536, target NNZ: 2097152, warmup=50, repeats=500, trials=7
+
+[Extreme] rows=65536 cols=65536 NNZ=2097152 avg=32 stddev=32 min=0 max=64 empty=32768
+  CSR correctness: PASS (max abs error 9.53674e-07)
+  JDS correctness: PASS (max abs error 2.86102e-06)
+  Profiling one csr launch (after 50 warm-ups)...
+==PROF== Profiling "spmvCSRKernel" - 0 (1/1): 0%....50%....100% - 15 passes
+One launch profiled; skipping CUDA-event timing and CSV.
+==PROF== Disconnected from process 101506
+==PROF== Report: /home/orangeck/my/infra/ECE408/gpu-algorithms-labs/labs/spmv/ncu_results/Extreme_csr.ncu-repz
+[101506] spmv_profile@127.0.0.1
+  spmvCSRKernel(float *, const int *, const int *, const float *, const float *, int) (8192, 1, 1)x(32, 8, 1), Context 1, Stream 7, Device 0, CC 8.9
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ----------- ------------
+    Metric Name             Metric Unit Metric Value
+    ----------------------- ----------- ------------
+    DRAM Frequency                  Ghz         7.99
+    SM Frequency                    Ghz         2.12
+    Elapsed Cycles                cycle      202,413
+    Memory Throughput                 %        85.80
+    DRAM Throughput                   %         0.34
+    Duration                         us        95.14
+    L1/TEX Cache Throughput           %        91.39
+    L2 Cache Throughput               %        85.80
+    SM Active Cycles              cycle   199,451.10
+    Compute (SM) Throughput           %        42.12
+    ----------------------- ----------- ------------
+
+    INF   This workload is utilizing greater than 80.0% of the available compute or memory performance of this device.  
+          To further improve performance, work will likely need to be shifted from the most utilized to another unit.   
+          Start by analyzing workloads in the Memory Workload Analysis section.                                         
+
+    Section: Memory Workload Analysis
+    --------------------------------------- ----------- ------------
+    Metric Name                             Metric Unit Metric Value
+    --------------------------------------- ----------- ------------
+    Local Memory Spilling Requests                                 0
+    Local Memory Spilling Request Overhead            %            0
+    L2 Sector Promotion Misses                        %            0
+    Shared Memory Spilling Requests                                0
+    Shared Memory Spilling Request Overhead           %            0
+    Memory Throughput                           Mbyte/s       430.54
+    Mem Busy                                          %        85.80
+    Max Bandwidth                                     %        83.70
+    L1/TEX Hit Rate                                   %        18.93
+    L2 Persisting Size                            Mbyte         4.72
+    L2 Compression Success Rate                       %            0
+    L2 Compression Ratio                                           0
+    L2 Compression Input Sectors                 sector            0
+    L2 Hit Rate                                       %       100.01
+    Mem Pipes Busy                                    %        42.12
+    --------------------------------------- ----------- ------------
+
+    Section: Warp State Statistics
+    ---------------------------------------- ----------- ------------
+    Metric Name                              Metric Unit Metric Value
+    ---------------------------------------- ----------- ------------
+    Warp Cycles Per Issued Instruction             cycle        33.10
+    Warp Cycles Per Executed Instruction           cycle        33.14
+    Avg. Active Threads Per Warp                                29.48
+    Avg. Not Predicated Off Threads Per Warp                    28.16
+    ---------------------------------------- ----------- ------------
+
+    WRN   The optional metric smsp__pcsamp_sample_count could not be found. Collecting it as an additional metric could 
+          enable the rule to provide more guidance.                                                                     
+    ----- --------------------------------------------------------------------------------------------------------------
+    OPT   Est. Local Speedup: 55.21%                                                                                    
+          On average, each warp of this workload spends 18.3 cycles being stalled waiting for a scoreboard dependency   
+          on a L1TEX (local, global, surface, texture) operation. Find the instruction producing the data being waited  
+          upon to identify the culprit. To reduce the number of cycles waiting on L1TEX data accesses verify the        
+          memory access patterns are optimal for the target architecture, attempt to increase cache hit rates by        
+          increasing data locality (coalescing), or by changing the cache configuration. Consider moving frequently     
+          used data to shared memory. Stall samples are reported on the consumer instruction waiting for the result,    
+          not necessarily on the producer. When this reason dominates, the kernel is memory-latency-bound, which is     
+          not necessarily memory-bandwidth-bound; prefer latency-hiding changes such as ILP, unrolling, or pipelining   
+          when bandwidth is not saturated. This stall type represents about 55.2% of the total average of 33.1 cycles   
+          between issuing two instructions.                                                                             
+    ----- --------------------------------------------------------------------------------------------------------------
+    INF   Check the Warp Stall Sampling (All Samples) table for the top stall locations in your source based on         
+          sampling data. The Profiling Guide                                                                            
+          (https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#metrics-reference) provides more details    
+          on each stall reason.                                                                                         
+
+    Section: Launch Statistics
+    -------------------------------- --------------- ---------------
+    Metric Name                          Metric Unit    Metric Value
+    -------------------------------- --------------- ---------------
+    Block Size                                                   256
+    Function Cache Configuration                     CachePreferNone
+    Grid Size                                                  8,192
+    Registers Per Thread             register/thread              40
+    Shared Memory Configuration Size           Kbyte           16.38
+    Driver Shared Memory Per Block       Kbyte/block            1.02
+    Dynamic Shared Memory Per Block       byte/block               0
+    Static Shared Memory Per Block        byte/block               0
+    # SMs                                         SM              20
+    Stack Size                                                 1,024
+    Threads                                   thread       2,097,152
+    # TPCs                                                        10
+    Enabled TPC IDs                                              all
+    Uses Green Context                                             0
+    Waves Per SM                                               68.27
+    -------------------------------- --------------- ---------------
+
+    Section: Occupancy
+    ------------------------------- ----------- ------------
+    Metric Name                     Metric Unit Metric Value
+    ------------------------------- ----------- ------------
+    Block Limit SM                        block           24
+    Block Limit Registers                 block            6
+    Block Limit Shared Mem                block           16
+    Block Limit Warps                     block            6
+    Theoretical Active Warps per SM        warp           48
+    Theoretical Occupancy                     %          100
+    Achieved Occupancy                        %        70.44
+    Achieved Active Warps Per SM           warp        33.81
+    ------------------------------- ----------- ------------
+
+    OPT   Est. Local Speedup: 29.56%                                                                                    
+          The difference between calculated theoretical (100.0%) and measured achieved occupancy (70.4%) can be the     
+          result of warp scheduling overheads or workload imbalances during the kernel execution. Load imbalances can   
+          occur between warps within a block as well as across blocks of the same kernel. See the CUDA Best Practices   
+          Guide (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on     
+          optimizing occupancy.                                                                                         
+

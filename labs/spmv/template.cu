@@ -32,7 +32,16 @@ __global__ void spmvCSRKernel(float *out, int *matCols, int *matRows,
 __global__ void spmvJDSKernel(float *out, int *matColStart, int *matCols,
                               int *matRowPerm, int *matRows,
                               float *matData, float *vec, int dim) {
-  //@@ insert spmv kernel for jds format
+  int row = blockIdx.x * blockDim.x + threadIdx.x;
+  if(row >= dim) {
+    return;
+  }
+  float sum = 0.0f;
+  for (int j = 0; j < matRows[row]; j++) {
+    int idx = matColStart[j] + row;
+    sum += matData[idx] * vec[matCols[idx]];
+  }
+  out[matRowPerm[row]] = sum;
 }
 
 // matCols: column indices of the matrix :NNZ
@@ -49,7 +58,9 @@ static void spmvCSR(float *out, int *matCols, int *matRows, float *matData,
 static void spmvJDS(float *out, int *matColStart, int *matCols,
                     int *matRowPerm, int *matRows, float *matData,
                     float *vec, int dim) {
-  //@@ invoke spmv kernel for jds format
+  dim3 block(256);
+  int gridSize = (dim + block.x - 1) / block.x;
+  spmvJDSKernel<<<gridSize, block>>>(out,matColStart, matCols,matRowPerm, matRows,matData,vec,dim);
 }
 
 static void sort(int *data, int *key, int start, int end) {

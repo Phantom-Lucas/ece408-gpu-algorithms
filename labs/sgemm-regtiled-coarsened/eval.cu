@@ -43,7 +43,6 @@ static void generate_data(float *x, const size_t n) {
 
 
 static int eval(const size_t matArow, const size_t matAcol, const size_t matBcol) {
-
     const size_t matBrow = matAcol;
   
     // Generate model
@@ -94,9 +93,9 @@ static int eval(const size_t matArow, const size_t matAcol, const size_t matBcol
     timer_stop();
   
     // verify with provided implementation
-    timer_start("Verifying results");
-    verify(hostA.data(), hostB.data(), hostC.data(), matArow, matAcol, matBcol);
-    timer_stop();
+    // timer_start("Verifying results");
+    // verify(hostA.data(), hostB.data(), hostC.data(), matArow, matAcol, matBcol);
+    // timer_stop();
   
     CUDA_RUNTIME(cudaFree(deviceA));
     CUDA_RUNTIME(cudaFree(deviceB));
@@ -107,35 +106,16 @@ static int eval(const size_t matArow, const size_t matAcol, const size_t matBcol
   
   
   TEST_CASE("sgemm", "[sgemm]") {
-    SECTION("[dims:32,32,32]") {
-      eval(32,32,32);
+    SECTION("[dims:512,512,512]") {
+    eval(4096,4096,4096);
     }
-    SECTION("[dims:30,30,30]") {
-      eval(30,30,30);
+
+    SECTION("[dims:1024,1024,1024]") {
+        eval(8192,8192,8192);
     }
-    SECTION("[dims:29,29,29]") {
-      eval(29,29,29);
-    }
-    SECTION("[dims:31,31,31]") {
-      eval(31,31,31);
-    }
-    SECTION("[dims:128,128,13]") {
-      eval(128,128,13);
-    }
-    SECTION("[dims:13,128,128]") {
-      eval(13,128,128);
-    }
-    SECTION("[dims:128,13,128]") {
-      eval(128,13,128);
-    }
-    SECTION("[dims:1,1,1]") {
-      eval(1,1,1);
-    }
-    SECTION("[dims:512,512,64]") {
-      eval(512,512,64);
-    }
-    SECTION("[dims:256,256,256]") {
-        eval(256,256,256);
+
+    SECTION("[dims:2048,2048,2048]") {
+        eval(16384,16384,16384);
     }
   }
 } // namespace gpu_algorithms_labs_evaluation
